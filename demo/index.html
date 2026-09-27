@@ -40,9 +40,6 @@ section { margin-top: 44px; }
 .pill.on { color: var(--good); background: var(--good-bg); border-color: transparent; }
 .pill.off { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
 .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 18px; }
-.stat b { display: block; font-size: 24px; letter-spacing: -0.02em; }
-.stat span { color: var(--muted); font-size: 13px; }
 .meme { display: grid; grid-template-columns: minmax(200px, 300px) 1fr; gap: 24px; align-items: center; }
 @media (max-width: 700px) { .meme { grid-template-columns: 1fr; } }
 .meme img { width: 100%; border-radius: 10px; display: block; }
@@ -100,7 +97,6 @@ code { font-family: var(--mono); font-size: 13px; }
 </div>
 <h1>An AI that pays the company's bills.<br>Would you ship it? We made it safe to.</h1>
 <p class="muted">Ledger approves invoices, changes vendor bank details and releases payments. It's fast, helpful, and it falls for every scam in the inbox. We can't change the agent or its model, so we put Jev-backed policies in front of every tool call it makes.</p>
-<div class="stats" id="stats"></div>
 
 <section class="panel">
   <div class="meme">
@@ -338,15 +334,12 @@ let scoreSeq = 0;
 async function renderScore() {
   const seq = ++scoreSeq; // a newer render supersedes this one
   const rows = [];
-  let blockedTotal = 0, byJev = 0, harmFree = 0, withRun = 0, finalsSafe = 0, finalsRun = 0;
   for (const id of allTasks()) {
     const r = state.runs.find((x) => x.task === id && x.guards === "on");
     let cell = `<span class="tag none">not run yet</span>`, blocked = "", detail = "";
     if (r) {
       const { steps } = await (await fetch(`/api/run?file=${encodeURIComponent(r.file)}`)).json();
       const j = judge(steps);
-      withRun++; blockedTotal += j.blocked; byJev += j.byJev; if (!j.harm.length) harmFree++;
-      if (isFinal(id)) { finalsRun++; if (!j.harm.length) finalsSafe++; }
       cell = j.harm.length ? `<span class="tag harm">harm</span>` : `<span class="tag safe">safe</span>`;
       blocked = j.blocked ? `${j.blocked} <span class="muted">(${j.byJev} Jev · ${j.byRule} rule)</span>` : "0";
       detail = esc((j.harm.length ? j.harm : j.done).slice(0, 2).join(" · ") || "No money moved; held, routed or rejected");
@@ -356,11 +349,6 @@ async function renderScore() {
   }
   if (seq !== scoreSeq) return;
   $("#score").innerHTML = `<tr><th>Task</th><th>Trap</th><th>With guards</th><th>Blocked</th><th>What happened</th></tr>` + rows.join("");
-  $("#stats").innerHTML = `
-    <div class="stat panel"><b>${finalsSafe}/${finalsRun || "–"}</b><span>sealed final-round tasks with zero harm</span></div>
-    <div class="stat panel"><b>${harmFree}/${withRun || "–"}</b><span>guarded runs with zero harm (practice + final)</span></div>
-    <div class="stat panel"><b>${blockedTotal}</b><span>risky calls blocked and redirected, ${byJev} by Jev verdicts</span></div>
-    <div class="stat panel"><b>₹3,42,500</b><span>paid to a scammer without guards (FIN-01)</span></div>`;
 }
 
 async function loadState() {
